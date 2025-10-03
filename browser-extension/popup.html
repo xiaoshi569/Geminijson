@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    h2 {
+      margin: 0 0 15px 0;
+      font-size: 18px;
+      text-align: center;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      text-align: center;
+      font-weight: bold;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .status.connected {
+      background: rgba(76, 175, 80, 0.3);
+    }
+    
+    .status.disconnected {
+      background: rgba(244, 67, 54, 0.3);
+    }
+    
+    .info {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    .info p {
+      margin: 5px 0;
+    }
+    
+    .icon {
+      text-align: center;
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="icon">🎮</div>
+  <h2>浏览器远程控制</h2>
+  
+  <div id="status" class="status disconnected">
+    正在连接...
+  </div>
+  
+  <div class="info">
+    <p>📡 服务器: localhost:8765</p>
+    <p>🐍 使用Python GUI控制浏览器</p>
+    <p>✨ 支持多种浏览器操作</p>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
+
