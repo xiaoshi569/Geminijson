@@ -52,9 +52,23 @@ async def handle_client(websocket, path):
                 await broadcast_to_browsers(data)
                 
             elif client_type == 'browser':
-                # 浏览器发送的响应，转发给GUI
-                print(f"[{get_time()}] 浏览器响应: {data.get('type')}")
-                await broadcast_to_gui(data)
+                # 处理浏览器发送的消息
+                msg_type = data.get('type')
+                
+                # 心跳消息，只记录不转发
+                if msg_type == 'ping':
+                    # 响应pong（可选）
+                    await websocket.send(json.dumps({'type': 'pong'}))
+                    continue
+                
+                # 其他消息转发给GUI
+                if msg_type == 'response':
+                    # 命令响应，转发给GUI
+                    await broadcast_to_gui(data)
+                else:
+                    # 其他类型消息也转发
+                    print(f"[{get_time()}] 浏览器消息: {msg_type}")
+                    await broadcast_to_gui(data)
                 
     except websockets.exceptions.ConnectionClosed:
         print(f"[{get_time()}] 客户端断开连接")

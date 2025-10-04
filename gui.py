@@ -150,51 +150,52 @@ class BrowserControlGUI:
             hover_color="#F57C00"
         ).pack(side="left", expand=True, padx=2)
         
-        # 页面操作
-        page_control = ctk.CTkFrame(left_panel)
-        page_control.pack(fill="x", padx=10, pady=10)
+        # 自动化任务控制
+        task_control = ctk.CTkFrame(left_panel)
+        task_control.pack(fill="x", padx=10, pady=10)
         
         ctk.CTkLabel(
-            page_control,
-            text="🎯 页面元素操作",
+            task_control,
+            text="🤖 自动化任务",
             font=ctk.CTkFont(size=16, weight="bold")
         ).pack(pady=5)
         
-        self.selector_entry = ctk.CTkEntry(
-            page_control,
-            placeholder_text="CSS选择器 (例如: #search-input)"
-        )
-        self.selector_entry.pack(fill="x", padx=10, pady=5)
-        
-        self.value_entry = ctk.CTkEntry(
-            page_control,
-            placeholder_text="输入值 (用于填充输入框)"
-        )
-        self.value_entry.pack(fill="x", padx=10, pady=5)
-        
-        self.tabid_entry = ctk.CTkEntry(
-            page_control,
-            placeholder_text="标签页ID (留空则使用当前标签)"
-        )
-        self.tabid_entry.pack(fill="x", padx=10, pady=5)
-        
-        btn_frame2 = ctk.CTkFrame(page_control, fg_color="transparent")
+        btn_frame2 = ctk.CTkFrame(task_control, fg_color="transparent")
         btn_frame2.pack(fill="x", padx=10, pady=5)
         
         ctk.CTkButton(
             btn_frame2,
-            text="👆 点击元素",
-            command=self.click_element,
+            text="🔐 登录流程",
+            command=self.task_login,
             fg_color="#9C27B0",
             hover_color="#7B1FA2"
         ).pack(side="left", expand=True, padx=2)
         
         ctk.CTkButton(
             btn_frame2,
-            text="✍️ 填充输入",
-            command=self.fill_input,
+            text="📁 创建项目",
+            command=self.task_create_project,
             fg_color="#E91E63",
             hover_color="#C2185B"
+        ).pack(side="left", expand=True, padx=2)
+        
+        btn_frame3 = ctk.CTkFrame(task_control, fg_color="transparent")
+        btn_frame3.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkButton(
+            btn_frame3,
+            text="🔑 创建OAuth",
+            command=self.task_create_oauth,
+            fg_color="#3F51B5",
+            hover_color="#303F9F"
+        ).pack(side="left", expand=True, padx=2)
+        
+        ctk.CTkButton(
+            btn_frame3,
+            text="🎯 创建AIStudio密钥",
+            command=self.task_create_aistudio,
+            fg_color="#009688",
+            hover_color="#00796B"
         ).pack(side="left", expand=True, padx=2)
         
         # 高级操作
@@ -322,27 +323,25 @@ class BrowserControlGUI:
         """获取当前标签页信息"""
         self.send_command("getCurrentTab")
         
-    def click_element(self):
-        """点击元素"""
-        selector = self.selector_entry.get().strip()
-        if not selector:
-            messagebox.showwarning("警告", "请输入CSS选择器")
-            return
-            
-        tab_id = self.get_tab_id()
-        self.send_command("clickElement", {"tabId": tab_id, "selector": selector})
+    def task_login(self):
+        """自动化登录流程"""
+        self.log("🔐 登录流程功能开发中...")
+        messagebox.showinfo("提示", "登录流程功能正在开发中\n敬请期待！")
         
-    def fill_input(self):
-        """填充输入框"""
-        selector = self.selector_entry.get().strip()
-        value = self.value_entry.get().strip()
+    def task_create_project(self):
+        """自动化创建项目"""
+        self.log("📁 创建项目功能开发中...")
+        messagebox.showinfo("提示", "创建项目功能正在开发中\n敬请期待！")
         
-        if not selector:
-            messagebox.showwarning("警告", "请输入CSS选择器")
-            return
-            
-        tab_id = self.get_tab_id()
-        self.send_command("fillInput", {"tabId": tab_id, "selector": selector, "value": value})
+    def task_create_oauth(self):
+        """自动化创建OAuth"""
+        self.log("🔑 创建OAuth功能开发中...")
+        messagebox.showinfo("提示", "创建OAuth功能正在开发中\n敬请期待！")
+        
+    def task_create_aistudio(self):
+        """自动化创建AIStudio密钥"""
+        self.log("🎯 创建AIStudio密钥功能开发中...")
+        messagebox.showinfo("提示", "创建AIStudio密钥功能正在开发中\n敬请期待！")
         
     def get_page_content(self):
         """获取页面内容"""
@@ -364,13 +363,8 @@ class BrowserControlGUI:
         self.send_command("executeScript", {"tabId": tab_id, "code": code})
         
     def get_tab_id(self):
-        """获取标签页ID"""
-        tab_id_str = self.tabid_entry.get().strip()
-        if tab_id_str:
-            try:
-                return int(tab_id_str)
-            except:
-                pass
+        """获取标签页ID（用于高级操作）"""
+        # 高级操作可能需要指定tabId，这里返回None表示使用当前标签页
         return None
     
     def show_screenshot_dialog(self, data_url):

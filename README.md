@@ -10,11 +10,11 @@
 - 获取当前标签页信息
 - 关闭指定标签页
 
-### 🎯 页面元素操作
-- 点击页面元素（通过CSS选择器）
-- 填充输入框
-- 获取元素文本
-- 获取完整页面内容
+### 🤖 自动化任务
+- 登录流程自动化（开发中）
+- 创建项目自动化（开发中）
+- 创建OAuth自动化（开发中）
+- 创建AIStudio密钥自动化（开发中）
 
 ### ⚡ 高级功能
 - 执行自定义JavaScript代码
@@ -91,10 +91,11 @@ python gui.py
    - 点击"📋 获取所有标签"查看所有打开的标签页
    - 点击"📍 当前标签信息"获取当前激活的标签页信息
 
-3. **页面元素操作**
-   - CSS选择器：输入要操作的元素选择器（如 `#search-input`、`.button-class`）
-   - 输入值：用于填充输入框的文本
-   - 标签页ID：指定要操作的标签页（留空则操作当前标签）
+3. **自动化任务**
+   - 🔐 登录流程：自动化登录操作（开发中）
+   - 📁 创建项目：自动创建项目流程（开发中）
+   - 🔑 创建OAuth：自动创建OAuth配置（开发中）
+   - 🎯 创建AIStudio密钥：自动创建AI密钥（开发中）
 
 4. **高级操作**
    - 执行自定义JavaScript代码
@@ -103,16 +104,12 @@ python gui.py
 
 ### 示例操作
 
-#### 1. 打开百度并搜索
-```python
+#### 1. 打开网页
+```
 # 在GUI中：
 1. URL输入框：https://www.baidu.com
-2. 点击"打开网页"
-3. CSS选择器：#kw
-4. 输入值：Python教程
-5. 点击"填充输入"
-6. CSS选择器：#su
-7. 点击"点击元素"
+2. 点击"🌐 打开网页"
+3. 自动在浏览器中打开指定网页
 ```
 
 #### 2. 执行自定义JavaScript
@@ -162,8 +159,6 @@ return {title, url};
 | `closeTab` | `tabId` | 关闭指定标签页 |
 | `getCurrentTab` | - | 获取当前标签页信息 |
 | `getAllTabs` | - | 获取所有标签页 |
-| `clickElement` | `tabId, selector` | 点击页面元素 |
-| `fillInput` | `tabId, selector, value` | 填充输入框 |
 | `getPageContent` | `tabId` | 获取页面内容 |
 | `executeScript` | `tabId, code` | 执行JavaScript |
 | `screenshot` | - | 截取当前页面 |
