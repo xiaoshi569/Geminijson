@@ -9,8 +9,11 @@ import websockets
 import subprocess
 import sys
 import os
+import time
 from tkinter import messagebox, scrolledtext
+from typing import Optional
 import customtkinter as ctk
+from project_api import GoogleCloudProjectAPI
 
 class BrowserControlGUI:
     def __init__(self):
@@ -21,6 +24,10 @@ class BrowserControlGUI:
         self.browser_connected = False
         self.server_process = None
         self.server_running = False
+        
+        # 项目创建相关
+        self.project_api = GoogleCloudProjectAPI()
+        self.pending_commands = {}  # 存储待响应的命令
         
         # 设置主题
         ctk.set_appearance_mode("dark")
@@ -330,8 +337,10 @@ class BrowserControlGUI:
         
     def task_create_project(self):
         """自动化创建项目"""
-        self.log("📁 创建项目功能开发中...")
-        messagebox.showinfo("提示", "创建项目功能正在开发中\n敬请期待！")
+        self.log("🚀 启动智能项目创建流程...")
+        
+        # 在新线程中执行，避免阻塞UI
+        threading.Thread(target=self._create_project_workflow, daemon=True).start()
         
     def task_create_oauth(self):
         """自动化创建OAuth"""
@@ -366,6 +375,140 @@ class BrowserControlGUI:
         """获取标签页ID（用于高级操作）"""
         # 高级操作可能需要指定tabId，这里返回None表示使用当前标签页
         return None
+    
+    # ========== 项目创建相关方法 ==========
+    
+    def _create_project_workflow(self):
+        """完整的项目创建工作流"""
+        try:
+            # 步骤1: 获取Cookie
+            self.log("📋 步骤1: 获取浏览器Cookie...")
+            cookies = self._get_cookies_sync()
+            
+            if not cookies:
+                self.log("❌ Cookie获取失败")
+                self.root.after(0, lambda: messagebox.showerror("错误", "无法获取Cookie\n请确保:\n1. 浏览器插件已连接\n2. 已登录Google账号\n3. 已访问Google Cloud Console"))
+                return
+            
+            # 设置Cookie到API
+            if not self.project_api.set_cookies(cookies):
+                self.log("❌ Cookie设置失败")
+                return
+            
+            # 检查关键Cookie
+            if 'SAPISID' not in self.project_api.cookies:
+                self.log("❌ 缺少关键Cookie: SAPISID")
+                self.root.after(0, lambda: messagebox.showerror("错误", "Cookie不完整\n请访问 https://console.cloud.google.com/\n并确保已登录"))
+                return
+            
+            self.log(f"✅ Cookie获取成功 ({len(self.project_api.cookies)} 个)")
+            
+            # 步骤2: 生成项目信息
+            self.log("📋 步骤2: 生成项目信息...")
+            import random
+            project_id = self.project_api.generate_project_id()
+            project_name = f"Project{random.randint(1000, 9999)}"
+            self.log(f"   项目名称: {project_name}")
+            self.log(f"   项目ID: {project_id}")
+            
+            # 步骤3: 创建项目
+            self.log("📋 步骤3: 调用API创建项目...")
+            self.log("⏳ 请稍等，正在处理...")
+            
+            success, message, project_id, project_number = self.project_api.create_project(project_name, project_id)
+            
+            if success:
+                self.log(f"✅ {message}")
+                
+                if not project_id:
+                    self.log("⚠️ 未能从响应中提取项目ID")
+                
+                if project_number:
+                    self.log(f"✅ 项目编号: {project_number}")
+                else:
+                    # 如果响应中没有，尝试查询
+                    if project_id:
+                        self.log("📋 步骤4: 查询项目编号...")
+                        self.log("⏳ 等待项目创建完成...")
+                        # 增加重试次数和初始等待时间，项目创建需要时间
+                        project_number = self.project_api.get_project_number(project_id, max_retries=6, initial_delay=15)
+                        
+                        if project_number:
+                            self.log(f"✅ 项目编号: {project_number}")
+                        else:
+                            project_number = "待查询"
+                            self.log("⚠️ 暂时无法获取项目编号")
+                    else:
+                        project_number = "未知"
+                        self.log("⚠️ 无法查询项目编号（缺少项目ID）")
+                
+                # 保存到文件
+                if project_id:
+                    self._save_project(project_id, project_number or "待查询")
+                
+                    self.log("=" * 50)
+                    self.log("🎉 项目创建成功！")
+                    self.log(f"📦 项目ID: {project_id}")
+                    self.log(f"🔢 项目编号: {project_number or '待查询'}")
+                    self.log("🌐 访问: https://console.cloud.google.com/")
+                    self.log("=" * 50)
+                else:
+                    self.log("⚠️ 项目可能已创建，但未能获取完整信息")
+                    self.log("💡 请访问 https://console.cloud.google.com/ 查看")
+            else:
+                self.log(f"❌ 创建失败: {message}")
+                self.root.after(0, lambda: messagebox.showerror("失败", f"项目创建失败\n\n{message}"))
+                
+        except Exception as e:
+            self.log(f"❌ 项目创建流程出错: {str(e)}")
+            self.root.after(0, lambda: messagebox.showerror("错误", f"创建项目时出错:\n{str(e)}"))
+    
+    def _get_cookies_sync(self, timeout=10) -> Optional[str]:
+        """同步获取Cookie（阻塞等待）"""
+        try:
+            # 生成命令ID
+            command_id = f"getCookies_{int(time.time() * 1000)}"
+            
+            # 准备接收响应
+            response_event = threading.Event()
+            response_data = {'cookies': None}
+            
+            def handle_cookie_response(data):
+                if data.get('command') == 'getCookies':
+                    result = data.get('result', {})
+                    if result.get('success'):
+                        response_data['cookies'] = result.get('cookies')
+                    response_event.set()
+            
+            # 临时注册响应处理器
+            self.pending_commands[command_id] = handle_cookie_response
+            
+            # 发送命令
+            self.send_command("getCookies", {})
+            
+            # 等待响应
+            if response_event.wait(timeout):
+                return response_data['cookies']
+            else:
+                self.log("⏱️ 获取Cookie超时")
+                return None
+                
+        except Exception as e:
+            self.log(f"获取Cookie出错: {e}")
+            return None
+        finally:
+            # 清理
+            if command_id in self.pending_commands:
+                del self.pending_commands[command_id]
+    
+    def _save_project(self, project_id: str, project_number: str):
+        """保存项目到文件（覆盖模式）"""
+        try:
+            with open('projects.txt', 'w', encoding='utf-8') as f:
+                f.write(f"{project_id}({project_number})\n")
+            self.log(f"💾 项目信息已保存到 projects.txt")
+        except Exception as e:
+            self.log(f"保存项目信息失败: {e}")
     
     def show_screenshot_dialog(self, data_url):
         """显示截图对话框"""
@@ -510,7 +653,20 @@ class BrowserControlGUI:
             result = data.get('result', {})
             command = data.get('command', '')
             
+            # 检查是否有待处理的命令回调
+            for cmd_id, callback in list(self.pending_commands.items()):
+                if command in cmd_id or command == data.get('command'):
+                    try:
+                        callback(data)
+                    except:
+                        pass
+            
             if result.get('success'):
+                # 对于getCookies命令，只记录不显示详情
+                if command == 'getCookies':
+                    self.log(f"✅ {command} 成功")
+                    return
+                
                 self.log(f"✅ {command} 成功")
                 
                 # 显示详细结果
