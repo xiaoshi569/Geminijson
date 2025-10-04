@@ -14,6 +14,7 @@ from tkinter import messagebox, scrolledtext
 from typing import Optional
 import customtkinter as ctk
 from project_api import GoogleCloudProjectAPI
+from oauth_api import GoogleOAuthAPI
 
 class BrowserControlGUI:
     def __init__(self):
@@ -27,6 +28,7 @@ class BrowserControlGUI:
         
         # 项目创建相关
         self.project_api = GoogleCloudProjectAPI()
+        self.oauth_api = GoogleOAuthAPI()
         self.pending_commands = {}  # 存储待响应的命令
         
         # 设置主题
@@ -343,9 +345,9 @@ class BrowserControlGUI:
         threading.Thread(target=self._create_project_workflow, daemon=True).start()
         
     def task_create_oauth(self):
-        """自动化创建OAuth"""
-        self.log("🔑 创建OAuth功能开发中...")
-        messagebox.showinfo("提示", "创建OAuth功能正在开发中\n敬请期待！")
+        """自动化创建OAuth（照搬参考项目）"""
+        self.log("🔑 启动OAuth创建流程...")
+        threading.Thread(target=self._create_oauth_workflow, daemon=True).start()
         
     def task_create_aistudio(self):
         """自动化创建AIStudio密钥"""
@@ -509,6 +511,217 @@ class BrowserControlGUI:
             self.log(f"💾 项目信息已保存到 projects.txt")
         except Exception as e:
             self.log(f"保存项目信息失败: {e}")
+    
+    def _create_oauth_workflow(self):
+        """OAuth创建的完整工作流（照搬参考项目）"""
+        try:
+            # 步骤1: 获取Cookie
+            self.log("📋 步骤1: 获取浏览器Cookie...")
+            cookies = self._get_cookies_sync()
+            
+            if not cookies:
+                self.log("❌ Cookie获取失败")
+                self.root.after(0, lambda: messagebox.showerror("错误", "无法获取Cookie\n请确保:\n1. 浏览器插件已连接\n2. 已登录Google账号\n3. 已访问Google Cloud Console"))
+                return
+            
+            # 设置Cookie到OAuth API
+            if not self.oauth_api.set_cookies(cookies):
+                self.log("❌ Cookie设置失败")
+                return
+            
+            self.log(f"✅ Cookie获取成功")
+            
+            # 步骤2: 读取项目信息
+            self.log("📋 步骤2: 读取项目信息...")
+            project_info = self._read_project_from_file()
+            
+            if not project_info:
+                self.log("❌ 无法读取项目信息")
+                self.root.after(0, lambda: messagebox.showerror("错误", "无法从projects.txt读取项目信息\n请先创建项目"))
+                return
+            
+            project_id = project_info.get('project_id')
+            project_number = project_info.get('project_number')
+            
+            if not project_id or not project_number:
+                self.log("❌ 项目信息不完整")
+                return
+            
+            self.log(f"✅ 使用项目: {project_id} (编号: {project_number})")
+            
+            # 步骤3: 获取用户邮箱（优先从文件读取）
+            self.log("📋 步骤3: 获取用户邮箱...")
+            
+            # 先从账号.txt读取
+            account_email, auxiliary_email = self._read_email_from_file()
+            
+            # 优先使用辅助邮箱，如果没有则使用账号邮箱
+            user_email = auxiliary_email if auxiliary_email else account_email
+            developer_email = auxiliary_email if auxiliary_email else account_email
+            
+            # 如果文件读取失败，尝试从API获取
+            if not user_email:
+                self.log("   尝试从API获取邮箱...")
+                user_email = self.oauth_api.get_current_user_email()
+                developer_email = user_email
+            
+            if not user_email:
+                self.log("❌ 无法获取用户邮箱")
+                self.root.after(0, lambda: messagebox.showerror("错误", "无法获取用户邮箱\n请确保:\n1. 账号.txt文件存在且格式正确\n2. 或已登录Google账号"))
+                return
+            
+            self.log(f"✅ 支持邮箱: {user_email}")
+            if developer_email != user_email:
+                self.log(f"✅ 开发者邮箱: {developer_email}")
+            
+            # 步骤4: 创建OAuth Brand（不检查，直接创建，如果已存在会忽略错误）
+            self.log("📋 步骤4: 创建OAuth同意屏幕...")
+            # 使用账号邮箱作为支持邮箱，辅助邮箱（或账号邮箱）作为开发者邮箱
+            brand_created, operation_name = self.oauth_api.create_oauth_brand(
+                project_number, 
+                project_id, 
+                account_email if account_email else user_email,  # 支持邮箱
+                developer_email  # 开发者邮箱
+            )
+            
+            # 无论Brand创建成功或失败（可能已存在），都继续创建Client
+            if brand_created:
+                if operation_name:
+                    self.log(f"✅ OAuth同意屏幕创建已启动（异步操作）")
+                    # Brand创建是异步的，等待5秒让其完成
+                    self.log("⏳ 等待5秒让同意屏幕完全创建...")
+                    time.sleep(5)
+                else:
+                    self.log("✅ OAuth同意屏幕已存在（跳过等待）")
+            else:
+                # Brand创建失败，通常是已存在，无需等待
+                self.log("⚠️ OAuth同意屏幕可能已存在，继续创建客户端...")
+            
+            # 步骤5: 创建OAuth Client
+            self.log("📋 步骤5: 创建OAuth Web客户端...")
+            client_created, client_info = self.oauth_api.create_oauth_client(project_number, project_id)
+            
+            if not client_created or not client_info:
+                self.log("❌ OAuth客户端创建失败")
+                self.root.after(0, lambda: messagebox.showerror("失败", "OAuth客户端创建失败"))
+                return
+            
+            # 保存OAuth凭证
+            self._save_oauth_client(client_info)
+            
+            self.log("=" * 50)
+            self.log("🎉 OAuth客户端创建成功！")
+            self.log(f"📦 客户端ID: {client_info['client_id']}")
+            if client_info.get('client_secret'):
+                self.log(f"🔑 客户端密钥: {client_info['client_secret'][:20]}...")
+            self.log(f"📝 显示名称: {client_info.get('display_name', '')}")
+            self.log(f"💾 凭证已保存到: oauth_client.txt 和 oauth_client.json")
+            self.log(f"🔗 管理页面: https://console.cloud.google.com/apis/credentials?project={project_id}")
+            self.log("=" * 50)
+            
+        except Exception as e:
+            self.log(f"❌ OAuth创建流程出错: {str(e)}")
+            self.root.after(0, lambda: messagebox.showerror("错误", f"创建OAuth时出错:\n{str(e)}"))
+    
+    def _read_project_from_file(self):
+        """从projects.txt读取项目信息（照搬参考项目）"""
+        try:
+            if not os.path.exists('projects.txt'):
+                self.log("⚠️ projects.txt文件不存在")
+                return None
+            
+            with open('projects.txt', 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+            
+            if not content:
+                self.log("⚠️ projects.txt文件为空")
+                return None
+            
+            # 解析格式: project-id(project-number)
+            lines = content.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                if '(' in line and ')' in line:
+                    try:
+                        project_id = line.split('(')[0].strip()
+                        project_number = line.split('(')[1].split(')')[0].strip()
+                        
+                        if project_id and project_number:
+                            self.log(f"📋 从文件读取: {project_id} ({project_number})")
+                            return {
+                                'project_id': project_id,
+                                'project_number': project_number
+                            }
+                    except:
+                        continue
+            
+            self.log("⚠️ 无法解析projects.txt中的项目信息")
+            return None
+            
+        except Exception as e:
+            self.log(f"读取项目文件失败: {e}")
+            return None
+    
+    def _read_email_from_file(self):
+        """从账号.txt读取邮箱信息
+        文件格式: 账号邮箱|密码|辅助邮箱
+        返回: (账号邮箱, 辅助邮箱)
+        """
+        try:
+            if not os.path.exists('账号.txt'):
+                self.log("⚠️ 账号.txt文件不存在")
+                return None, None
+            
+            with open('账号.txt', 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+            
+            if not content:
+                self.log("⚠️ 账号.txt文件为空")
+                return None, None
+            
+            # 解析格式: 账号邮箱|密码|辅助邮箱
+            parts = content.split('|')
+            
+            if len(parts) < 1:
+                self.log("⚠️ 账号.txt格式错误")
+                return None, None
+            
+            account_email = parts[0].strip() if len(parts) > 0 else None
+            auxiliary_email = parts[2].strip() if len(parts) > 2 else None
+            
+            self.log(f"📧 从文件读取邮箱:")
+            if account_email:
+                self.log(f"   账号邮箱: {account_email}")
+            if auxiliary_email:
+                self.log(f"   辅助邮箱: {auxiliary_email}")
+            
+            return account_email, auxiliary_email
+            
+        except Exception as e:
+            self.log(f"读取邮箱文件失败: {e}")
+            return None, None
+    
+    def _save_oauth_client(self, client_info: dict):
+        """保存OAuth凭证到文件（同时保存人类可读格式和JSON格式）"""
+        try:
+            # 保存人类可读格式
+            with open('oauth_client.txt', 'w', encoding='utf-8') as f:
+                f.write(f"客户端ID: {client_info['client_id']}\n")
+                f.write(f"客户端密钥: {client_info['client_secret']}\n")
+                f.write(f"显示名称: {client_info.get('display_name', '')}\n")
+                f.write(f"创建时间: {client_info.get('creation_time', '')}\n")
+                f.write(f"重定向URI: {', '.join(client_info.get('redirect_uris', []))}\n")
+            
+            # 同时保存JSON格式（便于程序读取）
+            with open('oauth_client.json', 'w', encoding='utf-8') as f:
+                json.dump(client_info, f, indent=2, ensure_ascii=False)
+            
+            self.log(f"💾 OAuth凭证已保存到 oauth_client.txt 和 oauth_client.json")
+        except Exception as e:
+            self.log(f"保存OAuth凭证失败: {e}")
     
     def show_screenshot_dialog(self, data_url):
         """显示截图对话框"""

@@ -1,0 +1,21 @@
+# 账号配置文件示例
+# 格式：账号邮箱|密码|辅助邮箱
+# 
+# 说明：
+# - 账号邮箱：作为OAuth同意屏幕的支持邮箱
+# - 密码：（预留字段，当前未使用）
+# - 辅助邮箱：作为开发者邮箱，如果没有可以省略或留空
+#
+# 示例1（有辅助邮箱）：
+# your-email@gmail.com|yourpassword|backup-email@hotmail.com
+#
+# 示例2（无辅助邮箱，会使用账号邮箱作为开发者邮箱）：
+# your-email@gmail.com|yourpassword|
+#
+# 使用方法：
+# 1. 将此文件重命名为 账号.txt（删除 .example 后缀）
+# 2. 填入您的真实账号信息
+# 3. 不要将此文件上传到公开仓库
+
+your-email@gmail.com|yourpassword|backup-email@hotmail.com
+
